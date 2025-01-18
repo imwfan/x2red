@@ -30,6 +30,10 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
     const scrollX = window.scrollX
     const scrollY = window.scrollY
     
+    setHighlightedElement(null)
+    
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
     try {
       await onSelected({
         x: rect.left + scrollX,
@@ -39,7 +43,6 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
       })
     } finally {
       setIsCapturing(false)
-      setHighlightedElement(null)
     }
   }, [isCapturing, onSelected])
 
