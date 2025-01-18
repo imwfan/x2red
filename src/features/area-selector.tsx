@@ -16,7 +16,12 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
   const [highlightedElement, setHighlightedElement] = useState<Element | null>(null)
   const [isCapturing, setIsCapturing] = useState(false)
   
-  // 使用 useCallback 包装处理函数，避免重复创建
+  const clearSelection = useCallback(() => {
+    if (window.getSelection) {
+      window.getSelection()?.removeAllRanges()
+    }
+  }, [])
+  
   const handleCapture = useCallback(async (element: Element) => {
     if (isCapturing) return
     setIsCapturing(true)
@@ -34,13 +39,14 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
       })
     } finally {
       setIsCapturing(false)
+      setHighlightedElement(null)
     }
   }, [isCapturing, onSelected])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isCapturing) return
-      e.stopPropagation()
+      clearSelection()
       
       const elements = document.elementsFromPoint(e.clientX, e.clientY)
       
@@ -76,12 +82,14 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
 
     const preventDefault = (e: Event) => {
       e.preventDefault()
+      clearSelection()
     }
 
-    document.addEventListener("mousemove", handleMouseMove)
-    document.addEventListener("dblclick", handleDoubleClick)
-    document.addEventListener("selectstart", preventDefault)
-    document.addEventListener("mousedown", preventDefault)
+    // 使用 passive: false 来确保可以阻止默认行为
+    document.addEventListener("mousemove", handleMouseMove, { passive: false })
+    document.addEventListener("dblclick", handleDoubleClick, { passive: false })
+    document.addEventListener("selectstart", preventDefault, { passive: false })
+    document.addEventListener("mousedown", preventDefault, { passive: false })
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove)
@@ -89,7 +97,7 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
       document.removeEventListener("selectstart", preventDefault)
       document.removeEventListener("mousedown", preventDefault)
     }
-  }, [highlightedElement, handleCapture, isCapturing])
+  }, [highlightedElement, handleCapture, isCapturing, clearSelection])
 
   if (!highlightedElement) return null
 
@@ -106,6 +114,8 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
     pointerEvents: "none" as const,
     zIndex: 999999,
     cursor: "crosshair",
+    userSelect: "none" as const,
+    WebkitUserSelect: "none" as const,
   }
 
   return createPortal(
@@ -121,6 +131,8 @@ export const AreaSelector = ({ onSelected }: AreaSelectorProps) => {
           zIndex: 999998,
           pointerEvents: "all",
           backgroundColor: "transparent",
+          userSelect: "none",
+          WebkitUserSelect: "none",
         }}
       />
       <div style={overlayStyle} />

@@ -11,9 +11,17 @@ style.textContent = `
 `
 document.head.appendChild(style)
 
+// 跟踪选择器是否已激活
+let isSelecting = false
+
 // 监听来自扩展的消息
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "START_AREA_SELECTION") {
+    // 如果已经在选择中，就不要重复创建
+    if (isSelecting) return
+
+    isSelecting = true
+    
     // 创建容器元素
     const container = document.createElement("div")
     container.id = "area-selector-root"
@@ -52,10 +60,14 @@ chrome.runtime.onMessage.addListener((message) => {
                 }
                 // 清理区域选择器
                 document.body.removeChild(container)
+                root.unmount()
+                isSelecting = false
               })
             } catch (error) {
               console.error("区域截图失败:", error)
               document.body.removeChild(container)
+              root.unmount()
+              isSelecting = false
             }
           }}
         />
