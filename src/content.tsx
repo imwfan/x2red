@@ -1,6 +1,16 @@
 import { createRoot } from "react-dom/client"
 import { AreaSelector } from "./features/area-selector"
 
+// 添加样式到 head
+const style = document.createElement('style')
+style.textContent = `
+  .area-selector-overlay {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+`
+document.head.appendChild(style)
+
 // 监听来自扩展的消息
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "START_AREA_SELECTION") {
@@ -12,55 +22,44 @@ chrome.runtime.onMessage.addListener((message) => {
     // 渲染区域选择器
     const root = createRoot(container)
     root.render(
-      <AreaSelector
-        onSelected={async (position) => {
-          try {
-            // 捕获可视区域的截图
-            const dataUrl = await chrome.tabs.captureVisibleTab(null, {
-              format: "png"
-            })
-
-            // 创建图片对象
-            const img = new Image()
-            img.src = dataUrl
-            
-            await new Promise((resolve) => {
-              img.onload = resolve
-            })
-
-            // 创建 canvas 并裁剪图片
-            const canvas = document.createElement("canvas")
-            canvas.width = position.width
-            canvas.height = position.height
-            
-            const ctx = canvas.getContext("2d")
-            ctx.drawImage(
-              img,
-              position.x - window.scrollX,
-              position.y - window.scrollY,
-              position.width,
-              position.height,
-              0,
-              0,
-              position.width,
-              position.height
-            )
-
-            // 下载截图
-            const link = document.createElement("a")
-            link.href = canvas.toDataURL()
-            link.download = `twitter-area-screenshot-${Date.now()}.png`
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-          } catch (error) {
-            console.error("区域截图失败:", error)
-          } finally {
-            // 清理区域选择器
-            document.body.removeChild(container)
-          }
-        }}
-      />
+      <div className="area-selector-overlay">
+        <AreaSelector
+          onSelected={async (position) => {
+            try {
+              // 发送消息给扩展后台进行截图
+              chrome.runtime.sendMessage({
+                type: "CAPTURE_SCREENSHOT",
+                position: {
+                  x: Math.round(position.x),
+                  y: Math.round(position.y),
+                  width: Math.round(position.width),
+                  height: Math.round(position.height),
+                  scrollX: window.scrollX,
+                  scrollY: window.scrollY
+                }
+              }, response => {
+                if (response && response.success) {
+                  // 创建下载链接
+                  const link = document.createElement("a")
+                  link.href = response.dataUrl
+                  link.download = `twitter-area-screenshot-${Date.now()}.png`
+                  link.style.display = 'none'
+                  document.body.appendChild(link)
+                  link.click()
+                  document.body.removeChild(link)
+                } else {
+                  console.error("截图失败:", response?.error || "未知错误")
+                }
+                // 清理区域选择器
+                document.body.removeChild(container)
+              })
+            } catch (error) {
+              console.error("区域截图失败:", error)
+              document.body.removeChild(container)
+            }
+          }}
+        />
+      </div>
     )
   }
 })
