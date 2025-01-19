@@ -15,26 +15,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const blob = await (await fetch(dataUrl)).blob()
         const bitmap = await createImageBitmap(blob)
         
-        // 设置 canvas 尺寸
-        const position = message.position
-        offscreenCanvas.width = position.width
-        offscreenCanvas.height = position.height
+        // 获取设备像素比
+        const devicePixelRatio = sender.tab?.width ? bitmap.width / sender.tab.width : 1
         
-        // 使用传入的滚动位置
-        const x = Math.round(position.x - position.scrollX)
-        const y = Math.round(position.y - position.scrollY)
+        // 设置 canvas 尺寸，考虑设备像素比
+        const position = message.position
+        offscreenCanvas.width = position.width * devicePixelRatio
+        offscreenCanvas.height = position.height * devicePixelRatio
+        
+        // 计算实际的裁剪坐标，考虑设备像素比和滚动位置
+        const x = Math.round((position.x - position.scrollX) * devicePixelRatio)
+        const y = Math.round((position.y - position.scrollY) * devicePixelRatio)
+        const width = Math.round(position.width * devicePixelRatio)
+        const height = Math.round(position.height * devicePixelRatio)
         
         // 绘制裁剪后的图片
         ctx.drawImage(
           bitmap,
           x,
           y,
-          position.width,
-          position.height,
+          width,
+          height,
           0,
           0,
-          position.width,
-          position.height
+          width,
+          height
         )
 
         // 转换为 base64
